@@ -71,16 +71,18 @@ public class CustomSwerveSubsystem extends SubsystemBase {
 
         odometer = new SwerveDriveOdometry(kinematics, getGyroAngle(), modulePositions);
         zeroHeading();
-        FLModule.resetEncoders();
-        FRModule.resetEncoders();
-        RLModule.resetEncoders();
-        RRModule.resetEncoders();
+
+        CustomSwerveModule[] modules = { FLModule, FRModule, RLModule, RRModule };
+        for (CustomSwerveModule module : modules) {
+            module.resetEncoders();
+        }
 
         new Thread(() -> {
             try {
                 Thread.sleep(1000);
                 zeroHeading();
-            } catch (Exception e) {
+            } catch (InterruptedException e) {
+                e.printStackTrace(); // Logging the exception
             }
         }).start();
     }
@@ -108,12 +110,10 @@ public class CustomSwerveSubsystem extends SubsystemBase {
 
     public Rotation2d getRotation2d() {
         return Rotation2d.fromDegrees(getHeading());
-        // TODO: Dashboard
     }
 
     public Pose2d getPose() {
         return odometer.getPoseMeters();
-        // TODO: Dashboard
     }
 
     public SwerveModulePosition[] getModulePositions(CustomSwerveModule[] modules) {
@@ -141,5 +141,4 @@ public class CustomSwerveSubsystem extends SubsystemBase {
         RLModule.stopModule();
         RRModule.stopModule();
     }
-
 }
