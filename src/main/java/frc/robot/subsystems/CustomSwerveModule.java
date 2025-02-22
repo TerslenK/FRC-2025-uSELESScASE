@@ -3,7 +3,6 @@ package frc.robot.subsystems;
 import com.ctre.phoenix6.hardware.TalonFX;
 import com.ctre.phoenix6.signals.FeedbackSensorSourceValue;
 import com.ctre.phoenix6.signals.InvertedValue;
-
 import static edu.wpi.first.units.Units.Degree;
 import static edu.wpi.first.units.Units.Rotations;
 import static edu.wpi.first.units.Units.RotationsPerSecond;
@@ -19,8 +18,13 @@ import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.lib.math.Conversions;
 import frc.robot.Constants;
+import java.util.logging.Logger;
 
 public class CustomSwerveModule extends SubsystemBase {
+    private static final Logger logger = Logger.getLogger(CustomSwerveModule.class.getName());
+
+    private static final double STOP_THRESHOLD = 0.001;
+
     private TalonFX driveMotor;
     private TalonFXConfiguration driveMotorConfiguration;
 
@@ -31,26 +35,29 @@ public class CustomSwerveModule extends SubsystemBase {
     private final Rotation2d CANCoderOffset;
 
     public CustomSwerveModule(int driveMotorPort, int steerMotorPort, int steerEncoderPort,
-            boolean isDriveMotorInverted,
-            boolean isSteerMotorInverted, Rotation2d CANCoderOffset) {
-
+            boolean isDriveMotorInverted, boolean isSteerMotorInverted, Rotation2d CANCoderOffset) {
         this.steerEncoder = new CANcoder(steerEncoderPort);
         this.CANCoderOffset = CANCoderOffset;
 
+        configureDriveMotor(driveMotorPort, isDriveMotorInverted);
+        configureSteerMotor(steerMotorPort, isSteerMotorInverted);
+    }
+
+    private void configureDriveMotor(int driveMotorPort, boolean isInverted) {
         driveMotor = new TalonFX(driveMotorPort);
         driveMotorConfiguration = new TalonFXConfiguration();
-        driveMotorConfiguration.MotorOutput.Inverted = isDriveMotorInverted ? InvertedValue.CounterClockwise_Positive
-                : InvertedValue.Clockwise_Positive;
+        driveMotorConfiguration.MotorOutput.Inverted = isInverted ? InvertedValue.CounterClockwise_Positive : InvertedValue.Clockwise_Positive;
         driveMotorConfiguration.Feedback.SensorToMechanismRatio = Constants.SwerveDrive.kGearRatio;
         driveMotorConfiguration.Slot0.kP = Constants.SwerveDrive.DriveMotorPID.kP;
         driveMotorConfiguration.Slot0.kI = Constants.SwerveDrive.DriveMotorPID.kI;
         driveMotorConfiguration.Slot0.kD = Constants.SwerveDrive.DriveMotorPID.kD;
         driveMotor.getConfigurator().apply(driveMotorConfiguration);
+    }
 
-        this.steerMotor = new TalonFX(steerMotorPort);
+    private void configureSteerMotor(int steerMotorPort, boolean isInverted) {
+        steerMotor = new TalonFX(steerMotorPort);
         steerMotorConfiguration = new TalonFXConfiguration();
-        steerMotorConfiguration.MotorOutput.Inverted = isSteerMotorInverted ? InvertedValue.CounterClockwise_Positive
-                : InvertedValue.Clockwise_Positive;
+        steerMotorConfiguration.MotorOutput.Inverted = isInverted ? InvertedValue.CounterClockwise_Positive : InvertedValue.Clockwise_Positive;
         steerMotorConfiguration.ClosedLoopGeneral.ContinuousWrap = true;
         steerMotorConfiguration.Slot0.kP = Constants.SwerveDrive.SteerMotorPID.kP;
         steerMotorConfiguration.Slot0.kI = Constants.SwerveDrive.SteerMotorPID.kI;
@@ -80,14 +87,11 @@ public class CustomSwerveModule extends SubsystemBase {
     }
 
     public Rotation2d getSteerAngle() {
-        return Rotation2d.fromRotations(
-            steerEncoder.getPosition().getValue().in(Rotations))
-            .minus(CANCoderOffset);
+        return Rotation2d.fromRotations(steerEncoder.getPosition().getValue().in(Rotations)).minus(CANCoderOffset);
     }
 
     public double getSteerVelocity() {
-        return Conversions.RPSToMPS(steerEncoder.getVelocity().getValue().in(RotationsPerSecond),
-                Constants.SwerveDrive.kWheelCircumference);
+        return Conversions.RPSToMPS(steerEncoder.getVelocity().getValue().in(RotationsPerSecond), Constants.SwerveDrive.kWheelCircumference);
     }
 
     public void stopModule() {
@@ -108,7 +112,7 @@ public class CustomSwerveModule extends SubsystemBase {
     }
 
     public void setDesiredState(SwerveModuleState state) {
-        if (Math.abs(state.speedMetersPerSecond) < 0.001) {
+        if (Math.abs(state.speedMetersPerSecond) < STOP_THRESHOLD) {
             stopModule();
             return;
         }
@@ -118,11 +122,11 @@ public class CustomSwerveModule extends SubsystemBase {
         double targetVelocityRPS = state.speedMetersPerSecond / Constants.SwerveDrive.kDriveEncoderRot2Meter;
         driveMotor.setControl(new VelocityVoltage(targetVelocityRPS));
         steerMotor.setControl(new PositionVoltage(state.angle.getRotations()));
-        System.out.println(state.angle.getRotations());
+        logger.info("Steer angle set to: " + state.angle.getRotations());
     }
 
     public void testSpeed(double driveSpeed, double steerSpeed) {
         driveMotor.set(driveSpeed);
         steerMotor.set(steerSpeed);
     }
-}
+            }
